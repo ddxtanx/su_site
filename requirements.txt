@@ -2,3 +2,4 @@ flask
 mypy
 skyward_api
 flask-socketio
+pymongo

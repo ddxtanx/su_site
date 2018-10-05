@@ -28,8 +28,8 @@ def echo_socket(message):
     print(str(data))
     emit(data)
 
-@socket.on("login", namespace="/soc/login")
-def socket_login(message):
+@socket.on("login", namespace="/soc/grades")
+def socket_grades(message):
     print(message)
     data = message["data"]
     username = data["username"]
@@ -38,7 +38,6 @@ def socket_login(message):
         api = SkywardAPI(username, passw, "wseduoakparkrfil")
         grades = api.get_grades_text()
         emit("grades", {"data": grades}, namespace="/soc/login")
-        print("Sent grades")
     except ValueError:
         emit("error", {"data": {"error": "login"}})
 

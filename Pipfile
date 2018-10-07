@@ -8,10 +8,11 @@ mypy = "*"
 skyward-api = "*"
 eventlet = "*"
 pymongo = "*"
-flask = "*"
-flask_socketio = "*"
 bcrypt = "*"
 validate_email = "*"
+gunicorn = "*"
+Flask = "*"
+Flask-SocketIO = "*"
 
 [dev-packages]
 

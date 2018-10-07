@@ -2,7 +2,7 @@ flask
 mypy
 skyward_api
 eventlet
-flask-socketio
+flask_socketio
 pymongo
 validate_email
 bcrypt

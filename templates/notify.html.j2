@@ -1,0 +1,16 @@
+{% extends "default.html.j2" %}
+{% block head %}
+  <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  {{ super() }}
+{% endblock %}
+{% block content %}
+  {% if error == "already" %}
+    <h1>You are already receiving updates!</h1>
+  {% else %}
+  <form method="post" action="notify">
+    <label for="submit">Would you like to receive grade notification?</label>
+    <input type="submit" name="submit" value="Yes!" />
+  </form>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "default.html.j2" %}
+{% block content %}
+  {% if error == "same" %}
+    <h1>Passwords must match</h1>
+  {% elif error == "valid" %}
+    <h1>Email must be valid email address.</h1>
+  {% elif error == "used" %}
+    <h1>Email already in use.</h1>
+  {% elif error == "logged" %}
+    <h1>You are already logged in!</h1>
+  {% endif %}
+  <form method="post" action="/register">
+    <input type="email" name="email" placeholder="Email:" />
+    <input type="password" name="password1" placeholder="Password:" />
+    <input type="password" name="password2" placeholder="Confirm Password:" />
+    <input type="submit"  />
+  </form>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "default.html.j2" %}
+{% block head %}
+  <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  {{ super() }}
+
+  {% if hsd %}
+    <script>
+      get_grades()
+    </script>
+  {% endif %}
+{% endblock %}
+{% block content %}
+  <h2 id="notify">Getting grades.</h2>
+  <div id="grades">
+    
+  </div>
+{% endblock %}

@@ -1,5 +1,8 @@
 flask
 mypy
 skyward_api
+eventlet
 flask-socketio
 pymongo
+validate_email
+bcrypt

@@ -9,7 +9,9 @@
     </head>
     <body>
         <div id="content">
-            {% block content %}{% endblock %}
+            {% include "sidebar.html.j2" %}
+            {% block content %}
+            {% endblock %}
         </div>
     </body>
 </html>

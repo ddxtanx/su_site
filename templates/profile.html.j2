@@ -1,0 +1,29 @@
+{% extends "default.html.j2" %}
+{% block head %}
+  <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  {{ super() }}
+{% endblock %}
+
+{% block content %}
+  {% if not hsd %}
+    <div id="sky_login">
+      {% if error == "destroyed" %}
+        <h1>Your session has been destroyed by skyward, please log in again.</h1>
+      {% endif %}
+      <h2>Log into Skyward:</h2>
+      <input type="text" id="sky_name" placeholder="Skyward Username:" />
+      <input type="password" id="sky_pass" placeholder="Skyward Password:" />
+      <input type="text" id="service" placeholder="Skyward Service:" />
+      <button id="submit">Log In!</button>
+      <h3>
+        Your Skyward password is not stored on the server, only a session
+        token that you can revoke by logging into Skyward again. To find
+        your Skyward Service, go to the Skyward link for your school and
+        copy/paste the portion after "WService". For "WService=wseduoakparkrfil"
+        the service would be wseduoakparkrfil.
+      </h3>
+    </div>
+    <h2 id="notify">Logging In...</h2>
+  {% endif %}
+{% endblock %}

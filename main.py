@@ -166,7 +166,7 @@ def notifier():
     return render_template("notify.html.j2", **data)
 
 def run():
-    socket.run(app, port=os.environ["PORT"])
+    socket.run(app, port=int(os.environ["PORT"]))
 
 def notify_func():
     notify.main()

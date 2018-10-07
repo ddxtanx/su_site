@@ -105,8 +105,8 @@ def send_email(
         msg.attach(MIMEText(email_str_text, "plain"))
         msg.attach(MIMEText(email_str_html, "html"))
 
-        server = smtplib.SMTP("smtp.mail.yahoo.com", 587)
-        server.connect("smtp.mail.yahoo.com", 587)
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.connect("smtp.gmail.com", 587)
         try:
             server.ehlo()
             server.starttls()

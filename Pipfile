@@ -1,14 +1,19 @@
 [[source]]
-name = "pypi"
 url = "https://pypi.org/simple"
 verify_ssl = true
-
-[requires]
-python_version = "3.4"
+name = "pypi"
 
 [packages]
 mypy = "*"
-Flask = "*"
 skyward-api = "*"
+eventlet = "*"
+pymongo = "*"
+Flask = "*"
+Flask-SocketIO = "*"
+bcrypt = "*"
+validate_email = "*"
 
 [dev-packages]
+
+[requires]
+python_version = "3.6"

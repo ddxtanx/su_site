@@ -1,4 +1,3 @@
-gunicorn
 flask
 mypy
 skyward_api

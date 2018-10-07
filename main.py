@@ -171,10 +171,11 @@ def run():
 def notify_func():
     notify.main()
 
-notify_process = mp.Process(target=notify_func)
-try:
-    notify_process.start()
-    run()
-except KeyboardInterrupt:
-    notify_process.terminate()
-    exit()
+if __name__ == "__main__":
+    notify_process = mp.Process(target=notify_func)
+    try:
+        notify_process.start()
+        run()
+    except KeyboardInterrupt:
+        notify_process.terminate()
+        exit()

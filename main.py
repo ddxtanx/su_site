@@ -138,6 +138,7 @@ def get_grades():
     print(session["sky_data"])
     api = SkywardAPI.from_session_data(session["service"], session["sky_data"])
     try:
+        print("Getting grades")
         grades = api.get_grades_text()
     except RuntimeError as e:
         print(str(e))

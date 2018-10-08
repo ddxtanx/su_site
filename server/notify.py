@@ -121,7 +121,7 @@ def loop_and_notify(nc: Collection) -> None:
     for notify in notifs:
         email = notify["email"]
         u_id = notify["_id"]
-        added, removed, curr = find_diff(u_id, nc)
+        added, removed= find_diff(u_id, nc)
         send_email(email, added, removed)
 
 def main() -> None:

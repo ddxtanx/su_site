@@ -1,1 +1,1 @@
-web: python3.6 main.py
+web: gunicorn --worker-class eventlet -w 1 main:app

@@ -139,7 +139,8 @@ def get_grades():
     api = SkywardAPI.from_session_data(session["service"], session["sky_data"])
     try:
         grades = api.get_grades_text()
-    except RuntimeError:
+    except RuntimeError as e:
+        print(str(e))
         users.update_user(session["id"], {"sky_data": {}})
         emit("error")
         return
@@ -156,26 +157,18 @@ def notifier():
     if request.method == "POST":
         try:
             users.add_notify(session["id"])
-        except RuntimeError:
+        except RuntimeError as e:
             users.update_user(session["id"], {
                 "sky_data": {}
             })
+            notify.update_record(session["id"], {
+                "sky_data": {}
+            })
+            print(str(e))
             return redirect("/profile?error=destroyed")
         except ValueError:
             data["error"] = "already"
     return render_template("notify.html.j2", **data)
 
-def run():
-    socket.run(app, port=int(os.environ["PORT"]))
-
-def notify_func():
-    notify.main()
-
-if __name__ == "__main__":
-    notify_process = mp.Process(target=notify_func)
-    try:
-        notify_process.start()
-        run()
-    except KeyboardInterrupt:
-        notify_process.terminate()
-        exit()
+if __name__=="__main__":
+    socket.run(app, host=os.environ["HOST"], port=int(os.environ["PORT"]))

@@ -155,3 +155,7 @@ def update_record(u_id: str, data: Dict[str, Any]) -> None:
     notify_collect.update_one({"_id": u_id}, {
         "$set": data
     })
+
+
+if __name__ == "__main__":
+    main()

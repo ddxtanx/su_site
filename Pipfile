@@ -9,10 +9,9 @@ skyward-api = "*"
 eventlet = "*"
 pymongo = "*"
 bcrypt = "*"
-validate_email = "*"
-gunicorn = "*"
 Flask = "*"
 Flask-SocketIO = "*"
+validate_email = "*"
 
 [dev-packages]
 

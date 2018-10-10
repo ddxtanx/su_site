@@ -137,8 +137,5 @@ def add_notify(u_id: str) -> None:
     curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades_json()
     notify_collect.insert_one({
         "_id": u_id,
-        "email": email,
-        "sky_data": sky_data,
         "grades": curr_grades,
-        "service": service
     })

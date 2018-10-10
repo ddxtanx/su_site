@@ -7,7 +7,10 @@ from time import sleep
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from os import environ
-
+if __name__ == "__main__":
+    import users
+else:
+    import server.users as users
 #####
 def points_str(dict: Dict[str, str]) -> str:
     return "{0}/{1} ({2})".format(
@@ -15,6 +18,18 @@ def points_str(dict: Dict[str, str]) -> str:
             dict["total_points"],
             dict["letter_grade"]
         )
+
+def login_to_server():
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.connect("smtp.gmail.com", 587)
+    try:
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+    except smtplib.SMTPNotSupportedError:
+        pass
+    server.login(environ["email"], environ["email_pass"])
+    return server
 #####
 GradeList = Dict[str, List[Dict[str, str]]]
 
@@ -37,8 +52,11 @@ def find_diff(u_id: str, nc: Collection) -> Tuple[GradeList, GradeList]:
         "_id": u_id
     })
     mongo_grades = notify_obj["grades"]
-    sky_data = notify_obj["sky_data"]
-    service = notify_obj["service"]
+    user_obj = users.get_user_by_id(u_id)
+    sky_data = user_obj["sky_data"]
+    service = user_obj["service"]
+    if sky_data == {}:
+        raise RuntimeError("Session destroyed.")
     curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades_json()
     update_record(u_id, {"grades": curr_grades})
     changed_grades = get_diff(curr_grades, mongo_grades)
@@ -99,21 +117,13 @@ def send_email(
         email_str_html += "<h2> You can view all your grades <a href='{0}/grades'>here.</a> </h2>".format(environ["url"])
         msg = MIMEMultipart('alternative')
         msg['Subject'] = "Gradebook Update!"
-        msg['From'] = email
+        msg['From'] = environ["email"]
         msg['To'] = email
 
         msg.attach(MIMEText(email_str_text, "plain"))
         msg.attach(MIMEText(email_str_html, "html"))
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.connect("smtp.gmail.com", 587)
-        try:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-        except smtplib.SMTPNotSupportedError:
-            pass
-        server.login(environ["email"], environ["email_pass"])
+        server = login_to_server()
         server.sendmail(email, email, msg.as_string())
 
 def loop_and_notify(nc: Collection) -> None:
@@ -121,8 +131,41 @@ def loop_and_notify(nc: Collection) -> None:
     for notify in notifs:
         email = notify["email"]
         u_id = notify["_id"]
-        added, removed= find_diff(u_id, nc)
-        send_email(email, added, removed)
+        try:
+            added, removed= find_diff(u_id, nc)
+            send_email(email, added, removed)
+        except RuntimeError:
+            if users.get_user_by_id(u_id)["sky_data"] != {}:
+                users.update_user(u_id, {
+                    "sky_data": {}
+                })
+                server = login_to_server()
+                message_text = (
+                    "Your session has been destroyed. "
+                    "Please retry your login at "
+                    "{0}/profile. "
+                    "Thank you! \n\n"
+                    "--Skyward Updater".format(environ["url"])
+                )
+                message_html = (
+                    "<p>"
+                    "Your session has been destroyed. "
+                    "Please retry your login "
+                    "<a href=\"{0}/profile\"> here. </a>"
+                    "Thank you!"
+                    "</p><br/><br/>"
+                    "--Skyward Updater".format(environ["url"])
+                )
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = "Session destroyed! :("
+                msg['From'] = environ["email"]
+                msg['To'] = email
+
+                msg.attach(MIMEText(message_text, "plain"))
+                msg.attach(MIMEText(message_html, "html"))
+
+                server.sendmail(environ["email"], email, msg.as_string())
+
 
 def main() -> None:
     client = MongoClient("mongodb://{0}:{1}@ds223653.mlab.com:23653/updater".format(
@@ -154,7 +197,6 @@ def update_record(u_id: str, data: Dict[str, Any]) -> None:
     notify_collect.update_one({"_id": u_id}, {
         "$set": data
     })
-
 
 if __name__ == "__main__":
     main()

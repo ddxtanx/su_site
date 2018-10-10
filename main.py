@@ -17,13 +17,14 @@ def page_data(name: str) -> Dict[str, Any]:
         pass
     log_in = "logged_in" in session.keys() and session["logged_in"]
     has_sky_data = "sky_data" in session and session["sky_data"] != {}
-    return {
+    data = {
         "css_link": url_for("static", filename="/css/{0}.css".format(name)).replace("//", "/"),
         "js_link": url_for("static", filename="/js/{0}.js".format(name)).replace("//", "/"),
         "name": name,
         "logged_in": log_in,
         "hsd": has_sky_data
     }
+    return data
 
 @app.route("/")
 def hello():
@@ -96,10 +97,6 @@ def sky_login(message):
             "sky_data": sess_data,
             "service": service
         })
-        notify.update_record(session["id"], {
-            "sky_data": sess_data,
-            "service": service
-        })
         session["sky_data"] = sess_data
         session["service"] = service
         emit("login resp", {
@@ -124,6 +121,10 @@ def sky_login(message):
 def profile():
     data = page_data("profile")
     data.update(request.args.to_dict())
+    if "service" in session:
+        data["service"] = session["service"]
+    else:
+        data["service"] = ""
     print(data)
     return render_template("profile.html.j2", **data)
 
@@ -160,9 +161,6 @@ def notifier():
             users.add_notify(session["id"])
         except RuntimeError as e:
             users.update_user(session["id"], {
-                "sky_data": {}
-            })
-            notify.update_record(session["id"], {
                 "sky_data": {}
             })
             print(str(e))

@@ -1,14 +1,21 @@
 <div id="sidebar">
   <a href="/">Home</a>
   {% if logged_in %}
+  <div id="logged_in">
     <a href="/profile">Profile</a>
     <a href="/logout">Logout</a>
+    <div id="hsd">
+    {% if hsd %}
+      <a href="/grades" id="grades_link">Grades</a>
+      <a href="/notify" id="notifier_link">Notifier</a>
+    {% else %}
+      <a href="/grades" id="grades_link" style="display: none">Grades</a>
+      <a href="/notify" id="notifier_link" style="display: none">Notifier</a>
+    {% endif %}
+    </div>
+  </div>
   {% else %}
     <a href="/login">Login</a>
     <a href="/register">Register</a>
-  {% endif %}
-  {% if hsd %}
-    <a href="/grades">Grades</a>
-    <a href="/notify">Notifier</a>
   {% endif %}
 </div>

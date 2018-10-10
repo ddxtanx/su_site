@@ -132,9 +132,8 @@ def main() -> None:
     db = client["updater"]
     notify_collect = db["notify"]
     while True:
-        print("Looping!")
         loop_and_notify(notify_collect)
-        sleep(10*60)
+        sleep(4*60)
 
 def get_record(u_id: str) -> ReturnDocument:
     client = MongoClient("mongodb://{0}:{1}@ds223653.mlab.com:23653/updater".format(

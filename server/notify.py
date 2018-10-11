@@ -129,8 +129,8 @@ def send_email(
 def loop_and_notify(nc: Collection) -> None:
     notifs = nc.find({})
     for notify in notifs:
-        email = notify["email"]
         u_id = notify["_id"]
+        email = users.get_user_by_id(u_id)["email"]
         try:
             added, removed= find_diff(u_id, nc)
             send_email(email, added, removed)

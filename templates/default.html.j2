@@ -4,6 +4,9 @@
         {% block head %}
         <link rel="stylesheet" type="text/css" href="{{ css_link }}"/>
         <script src="{{ js_link }}"></script>
+        <script>
+          var u_id = "{{ u_id }}";
+        </script>
         <title>{{ name|title }}</title>
         {% endblock %}
     </head>

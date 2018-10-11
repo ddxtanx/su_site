@@ -3,6 +3,7 @@
   global io
   global location
   global window
+  global u_id
 */
 function SocCreator(url){
     return io.connect(location.host + '/' + url);
@@ -10,7 +11,11 @@ function SocCreator(url){
 var soc = SocCreator("soc/grades");
 
 function get_grades(){
-  soc.emit("get grades")
+  soc.emit("get grades", {
+    "data": {
+      "u_id": u_id
+    }
+  })
 }
 $(document).ready(function(){
   soc.on("grades", function(message){
@@ -38,3 +43,11 @@ $(document).ready(function(){
     window.location.href="/profile?error=destroyed";
   })
 });
+
+$(window).unload(function(){
+  soc.emit("cancel grades", {
+    "data": {
+      "u_id": u_id
+    }
+  })
+})

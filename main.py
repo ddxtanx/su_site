@@ -1,15 +1,19 @@
 from flask import Flask, url_for, render_template, request, session, redirect
 from skyward_api import SkywardAPI
 from flask_socketio import SocketIO, emit
-from typing import Dict, Any
+from typing import Dict, Any, List
 import server.notify as notify
 import server.users as users
 import os
-import multiprocessing as mp
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ["key"]
 socket = SocketIO(app)
+
+#####
+GradeList = Dict[str, List[Dict[str, str]]]
+#####
+
 def page_data(name: str) -> Dict[str, Any]:
     try:
         session["sky_data"] = users.get_user_by_id(session["id"])["sky_data"]
@@ -17,12 +21,14 @@ def page_data(name: str) -> Dict[str, Any]:
         pass
     log_in = "logged_in" in session.keys() and session["logged_in"]
     has_sky_data = "sky_data" in session and session["sky_data"] != {}
+    u_id = session["id"] if "id" in session else ""
     data = {
         "css_link": url_for("static", filename="/css/{0}.css".format(name)).replace("//", "/"),
         "js_link": url_for("static", filename="/js/{0}.js".format(name)).replace("//", "/"),
         "name": name,
         "logged_in": log_in,
-        "hsd": has_sky_data
+        "hsd": has_sky_data,
+        "u_id": u_id
     }
     return data
 
@@ -134,22 +140,23 @@ def grades():
     return render_template("grades.html.j2", **data)
 
 @socket.on("get grades", namespace="/soc/grades")
-def get_grades():
-    print("got grade request")
-    print(session["sky_data"])
-    api = SkywardAPI.from_session_data(session["service"], session["sky_data"])
+def get_grades(message):
+    u_id = message["data"]["u_id"]
     try:
-        print("Getting grades")
-        grades = api.get_grades_text()
+        api = SkywardAPI.from_session_data(
+            session["service"],
+            session["sky_data"]
+        )
+        grades_text = api.get_grades_text()
+        emit("grades", {
+            "data": grades_text
+        })
+        print("Sent grades")
     except RuntimeError as e:
         print(str(e))
         users.update_user(session["id"], {"sky_data": {}})
         emit("error")
         return
-    emit("grades", {
-        "data": grades
-    })
-    print("Sent grades")
 
 @app.route("/notify", methods=["GET", "POST"])
 def notifier():

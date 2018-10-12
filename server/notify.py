@@ -166,6 +166,16 @@ def loop_and_notify(nc: Collection) -> None:
 
                 server.sendmail(environ["email"], email, msg.as_string())
 
+def loop_and_keep_alive(nc: Collection) -> None:
+    notifiers = nc.find({})
+    for notify in notifiers:
+        u_id = notify["_id"]
+        user = users.get_user_by_id(u_id)
+        sky_data = user["sky_data"]
+        if sky_data != {}:
+            service = user["service"]
+            user_api = SkywardAPI.from_session_data(service, sky_data)
+            user_api.keep_alive()
 
 def main() -> None:
     client = MongoClient("mongodb://{0}:{1}@ds223653.mlab.com:23653/updater".format(
@@ -174,9 +184,15 @@ def main() -> None:
     ))
     db = client["updater"]
     notify_collect = db["notify"]
+    mins = 0
     while True:
-        loop_and_notify(notify_collect)
-        sleep(4*60)
+        if mins == 5:
+            loop_and_notify(notify_collect)
+            mins = 0
+        else:
+            loop_and_keep_alive(notify_collect)
+            mins += 1
+        sleep(60)
 
 def get_record(u_id: str) -> ReturnDocument:
     client = MongoClient("mongodb://{0}:{1}@ds223653.mlab.com:23653/updater".format(

@@ -31,7 +31,6 @@ $(document).ready(function(){
     } else if(data.status === "incorrect"){
       $("#sky_name").val("")
       $("#sky_pass").val("")
-      $("#service").val("")
       $("#notify").text("Username/Password/Service incorrect...")
     } else{
       $("#notify").text("Oof, something went wrong...")

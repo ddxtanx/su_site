@@ -2,10 +2,9 @@ from flask import Flask, url_for, render_template, request, session, redirect
 from skyward_api import SkywardAPI, Assignment
 from flask_socketio import SocketIO, emit
 from typing import Dict, Any, List
-import server.notify as notify
 import server.users as users
 import os
-from pickle import loads
+from pickle import loads, dumps
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ["key"]
@@ -29,7 +28,8 @@ def page_data(name: str) -> Dict[str, Any]:
         "name": name,
         "logged_in": log_in,
         "hsd": has_sky_data,
-        "u_id": u_id
+        "u_id": u_id,
+        "default_css_link": url_for("static", filename="/css/sidebar.css").replace("//", "/")
     }
     return data
 
@@ -144,7 +144,17 @@ def grades():
 def get_grades(message):
     u_id = message["data"]["u_id"]
     try:
-        grades = loads(notify.get_record(u_id)["grades"])
+        grades = {}
+        try:
+            grades = loads(users.get_user_by_id(u_id)["grades"])
+        except (TypeError, KeyError):
+            user = users.get_user_by_id(u_id)
+            sky_data = user["sky_data"]
+            api = SkywardAPI.from_session_data(user["service"], sky_data)
+            grades = api.get_grades()
+            users.update_user(u_id, {
+                "grades": dumps(grades)
+            })
         grades_text = {}
         for key, item in grades.items():
             grades_text[key] = list(
@@ -162,24 +172,6 @@ def get_grades(message):
         users.update_user(session["id"], {"sky_data": {}})
         emit("error")
         return
-
-@app.route("/notify", methods=["GET", "POST"])
-def notifier():
-    data = page_data("notify")
-    if notify.get_record(session["id"]) is not None:
-        data["error"] = "already"
-    if request.method == "POST":
-        try:
-            users.add_notify(session["id"])
-        except RuntimeError as e:
-            users.update_user(session["id"], {
-                "sky_data": {}
-            })
-            print(str(e))
-            return redirect("/profile?error=destroyed")
-        except ValueError:
-            data["error"] = "already"
-    return render_template("notify.html.j2", **data)
 
 if __name__=="__main__":
     socket.run(app, host=os.environ["HOST"], port=int(os.environ["PORT"]))

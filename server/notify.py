@@ -13,12 +13,6 @@ if __name__ == "__main__":
 else:
     import server.users as users
 #####
-def points_str(dict: Dict[str, str]) -> str:
-    return "{0}/{1} ({2})".format(
-            dict["num_points"],
-            dict["total_points"],
-            dict["letter_grade"]
-        )
 
 def login_to_server():
     server = smtplib.SMTP("smtp.gmail.com", 587)
@@ -49,18 +43,17 @@ def get_diff(new_grades: GradeList, old_grades: GradeList) -> GradeList:
     return difference
 
 def find_diff(u_id: str, nc: Collection) -> Tuple[GradeList, GradeList]:
-    notify_obj = nc.find_one({
+    user_obj = nc.find_one({
         "_id": u_id
     })
-    mongo_grades_pkl = notify_obj["grades"]
+    mongo_grades_pkl = user_obj["grades"]
     mongo_grades = loads(mongo_grades_pkl)
-    user_obj = users.get_user_by_id(u_id)
     sky_data = user_obj["sky_data"]
     service = user_obj["service"]
     if sky_data == {}:
         raise RuntimeError("Session destroyed.")
-    curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades_json()
-    update_record(u_id, {"grades": dumps(curr_grades)})
+    curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades()
+    users.update_user(u_id, {"grades": dumps(curr_grades)})
     changed_grades = get_diff(curr_grades, mongo_grades)
     removed_grades = get_diff(mongo_grades, curr_grades)
     return (changed_grades, removed_grades)
@@ -128,16 +121,18 @@ def send_email(
         server = login_to_server()
         server.sendmail(email, email, msg.as_string())
 
-def loop_and_notify(nc: Collection) -> None:
-    notifs = nc.find({})
-    for notify in notifs:
+def loop_and_notify(collect: Collection) -> None:
+    notif_users = collect.find()
+    for notify in notif_users:
         u_id = notify["_id"]
-        email = users.get_user_by_id(u_id)["email"]
+        email = notify["email"]
+        if notify["sky_data"] == {}:
+            return
         try:
-            added, removed= find_diff(u_id, nc)
+            added, removed= find_diff(u_id, collect)
             send_email(email, added, removed)
         except RuntimeError:
-            if users.get_user_by_id(u_id)["sky_data"] != {}:
+            if notify["sky_data"] != {}:
                 users.update_user(u_id, {
                     "sky_data": {}
                 })
@@ -168,52 +163,24 @@ def loop_and_notify(nc: Collection) -> None:
 
                 server.sendmail(environ["email"], email, msg.as_string())
 
-def loop_and_keep_alive(nc: Collection) -> None:
-    notifiers = nc.find({})
+def loop_and_keep_alive(collect: Collection) -> None:
+    notifiers = collect.find()
     for notify in notifiers:
-        u_id = notify["_id"]
-        user = users.get_user_by_id(u_id)
-        sky_data = user["sky_data"]
+        sky_data = notify["sky_data"]
         if sky_data != {}:
-            service = user["service"]
+            service = notify["service"]
             user_api = SkywardAPI.from_session_data(service, sky_data)
             user_api.keep_alive()
 
 def main() -> None:
-    client = MongoClient("mongodb://{0}:{1}@ds223653.mlab.com:23653/updater".format(
-            environ["db_user"],
-            environ["db_pass"]
-    ))
-    db = client["updater"]
-    notify_collect = db["notify"]
     mins = 0
     while True:
         if mins == 0:
-            loop_and_notify(notify_collect)
+            loop_and_notify(users.users_collection)
         else:
-            loop_and_keep_alive(notify_collect)
-            mins = (mins + 1) % 5
+            loop_and_keep_alive(users.users_collection)
+        mins = (mins + 1) % 5
         sleep(60)
-
-def get_record(u_id: str) -> ReturnDocument:
-    client = MongoClient("mongodb://{0}:{1}@ds223653.mlab.com:23653/updater".format(
-            environ["db_user"],
-            environ["db_pass"]
-    ))
-    db = client["updater"]
-    notify_collect = db["notify"]
-    return notify_collect.find_one({"_id": u_id})
-
-def update_record(u_id: str, data: Dict[str, Any]) -> None:
-    client = MongoClient("mongodb://{0}:{1}@ds223653.mlab.com:23653/updater".format(
-            environ["db_user"],
-            environ["db_pass"]
-    ))
-    db = client["updater"]
-    notify_collect = db["notify"]
-    notify_collect.update_one({"_id": u_id}, {
-        "$set": data
-    })
 
 if __name__ == "__main__":
     main()

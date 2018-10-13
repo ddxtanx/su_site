@@ -1,17 +1,18 @@
 from flask import Flask, url_for, render_template, request, session, redirect
-from skyward_api import SkywardAPI
+from skyward_api import SkywardAPI, Assignment
 from flask_socketio import SocketIO, emit
 from typing import Dict, Any, List
 import server.notify as notify
 import server.users as users
 import os
+from pickle import loads
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ["key"]
 socket = SocketIO(app)
 
 #####
-GradeList = Dict[str, List[Dict[str, str]]]
+GradeList = Dict[str, List[Assignment]]
 #####
 
 def page_data(name: str) -> Dict[str, Any]:
@@ -143,11 +144,15 @@ def grades():
 def get_grades(message):
     u_id = message["data"]["u_id"]
     try:
-        api = SkywardAPI.from_session_data(
-            session["service"],
-            session["sky_data"]
-        )
-        grades_text = api.get_grades_text()
+        grades = loads(notify.get_record(u_id)["grades"])
+        grades_text = {}
+        for key, item in grades.items():
+            grades_text[key] = list(
+                map(
+                    lambda grade: str(grade),
+                    item
+                )
+            )
         emit("grades", {
             "data": grades_text
         })

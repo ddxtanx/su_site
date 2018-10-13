@@ -1,4 +1,4 @@
-from skyward_api import SkywardAPI
+from skyward_api import SkywardAPI, Assignment
 from pymongo import MongoClient
 from pymongo.collection import ReturnDocument, Collection
 from typing import Any, Dict, List, Tuple
@@ -7,6 +7,7 @@ from time import sleep
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from os import environ
+from pickle import dumps, loads
 if __name__ == "__main__":
     import users
 else:
@@ -31,7 +32,7 @@ def login_to_server():
     server.login(environ["email"], environ["email_pass"])
     return server
 #####
-GradeList = Dict[str, List[Dict[str, str]]]
+GradeList = Dict[str, List[Assignment]]
 
 def get_diff(new_grades: GradeList, old_grades: GradeList) -> GradeList:
     difference = {} #type: Dict[str, List[Dict[str, str]]]
@@ -51,14 +52,15 @@ def find_diff(u_id: str, nc: Collection) -> Tuple[GradeList, GradeList]:
     notify_obj = nc.find_one({
         "_id": u_id
     })
-    mongo_grades = notify_obj["grades"]
+    mongo_grades_pkl = notify_obj["grades"]
+    mongo_grades = loads(mongo_grades_pkl)
     user_obj = users.get_user_by_id(u_id)
     sky_data = user_obj["sky_data"]
     service = user_obj["service"]
     if sky_data == {}:
         raise RuntimeError("Session destroyed.")
     curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades_json()
-    update_record(u_id, {"grades": curr_grades})
+    update_record(u_id, {"grades": dumps(curr_grades)})
     changed_grades = get_diff(curr_grades, mongo_grades)
     removed_grades = get_diff(mongo_grades, curr_grades)
     return (changed_grades, removed_grades)
@@ -74,16 +76,16 @@ def send_email(
         change_str_text = ""
         change_str_html = ""
         for change in grade_changes:
-            assignment_name = change["name"]
-            assignment_grade = change["letter_grade"]
+            assignment_name = change.name
+            assignment_grade = change.letter_grade
             if assignment_grade != "*":
                 change_str_html += "\t<li>The grade for {0} was changed to {1}</li>\n".format(
                     assignment_name,
-                    points_str(change)
+                    change.points_str()
                 )
                 change_str_text += "\tThe grade for {0} was changed to {1}\n".format(
                     assignment_name,
-                    points_str(change)
+                    change.points_str()
                 )
             else:
                 change_str_html += "\t<li>{0} was added to the gradebook</li>\n".format(
@@ -99,8 +101,8 @@ def send_email(
         change_str_text = ""
         change_str_html = ""
         for change in grade_changes:
-            change_str_text = "\t{0} was removed from the gradebook\n".format(change["name"])
-            change_str_html = "<li>{0} was removed from the gradebook</li>".format(change["name"])
+            change_str_text = "\t{0} was removed from the gradebook\n".format(change.name)
+            change_str_html = "<li>{0} was removed from the gradebook</li>".format(change.name)
         if change_str_text != "":
             changes_text[clas] += change_str_text
             changes_html[clas] += change_str_html
@@ -186,12 +188,11 @@ def main() -> None:
     notify_collect = db["notify"]
     mins = 0
     while True:
-        if mins == 5:
+        if mins == 0:
             loop_and_notify(notify_collect)
-            mins = 0
         else:
             loop_and_keep_alive(notify_collect)
-            mins += 1
+            mins = (mins + 1) % 5
         sleep(60)
 
 def get_record(u_id: str) -> ReturnDocument:

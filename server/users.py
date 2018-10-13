@@ -4,6 +4,7 @@ from skyward_api import SkywardAPI
 from validate_email import validate_email
 from typing import Any, Dict
 from os import environ
+from pickle import dumps
 import bcrypt
 import random, string
 
@@ -134,8 +135,8 @@ def add_notify(u_id: str) -> None:
     sky_data = user["sky_data"]
     email = user["email"]
     service = user["service"]
-    curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades_json()
+    curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades()
     notify_collect.insert_one({
         "_id": u_id,
-        "grades": curr_grades,
+        "grades": dumps(curr_grades),
     })

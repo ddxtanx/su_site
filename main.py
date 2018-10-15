@@ -140,18 +140,29 @@ def grades():
     data = page_data("grades")
     return render_template("grades.html.j2", **data)
 
+
+def manual_grade_retrieve(u_id: str) -> GradeList:
+    user = users.get_user_by_id(u_id)
+    sky_data = user["sky_data"]
+    api = SkywardAPI.from_session_data(user["service"], sky_data)
+    grades = api.get_grades()
+    return grades
+
 @socket.on("get grades", namespace="/soc/grades")
 def get_grades(message):
     u_id = message["data"]["u_id"]
     try:
         grades = {}
         try:
-            grades = loads(users.get_user_by_id(u_id)["grades"])
+            if "force" not in message["data"]:
+                grades = loads(users.get_user_by_id(u_id)["grades"])
+            else:
+                grades = manual_grade_retrieve(u_id)
+                users.update_user(u_id, {
+                    "grades": dumps(grades)
+                })
         except (TypeError, KeyError):
-            user = users.get_user_by_id(u_id)
-            sky_data = user["sky_data"]
-            api = SkywardAPI.from_session_data(user["service"], sky_data)
-            grades = api.get_grades()
+            grades = manual_grade_retrieve(u_id)
             users.update_user(u_id, {
                 "grades": dumps(grades)
             })

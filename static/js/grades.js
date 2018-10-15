@@ -42,6 +42,16 @@ $(document).ready(function(){
   soc.on("error", function(){
     window.location.href="/profile?error=destroyed";
   })
+  $("#force").click(function(){
+    $("#grades").empty()
+    $("#notify").show()
+    soc.emit("get grades", {
+      "data": {
+        "u_id": u_id,
+        "force": true
+      }
+    })
+  })
 });
 
 $(window).unload(function(){

@@ -11,8 +11,15 @@
   {% endif %}
 {% endblock %}
 {% block content %}
+  <h2>
+    These are grades that are stored on the server, press the button below to
+    force update the grades and retrieve the most recent grade updates. Automatic
+    updates happen every 10 minutes, which is also when you would get emailed
+    about grade changes.
+  </h2>
+  <button id="force">Force Skyward Update.</button>
   <h2 id="notify">Getting grades.</h2>
   <div id="grades">
-    
+
   </div>
 {% endblock %}

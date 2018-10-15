@@ -175,11 +175,19 @@ def loop_and_keep_alive(collect: Collection) -> None:
 def main() -> None:
     mins = 0
     while True:
-        loop_and_keep_alive(users.users_collection)
-        if mins == 0:
-            loop_and_notify(users.users_collection)
-        mins = (mins + 1) % 5
-        sleep(3*60)
+        try:
+            loop_and_keep_alive(users.users_collection)
+            if mins == 0:
+                loop_and_notify(users.users_collection)
+            mins = (mins + 1) % 5
+        except RuntimeError as e:
+            if "Unable to make request" in str(e):
+                sleep(60)
+                loop_and_keep_alive(users.users_collection)
+            else:
+                raise e
+        finally:
+            sleep(3*60)
 
 if __name__ == "__main__":
     main()

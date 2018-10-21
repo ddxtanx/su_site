@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 mypy = "*"
-skyward-api = "==1.5.2"
+skyward-api = "==1.5.3"
 eventlet = "*"
 pymongo = "*"
 bcrypt = "*"

@@ -1,6 +1,6 @@
 flask
 mypy
-skyward_api
+skyward_api==1.5.3
 eventlet
 flask_socketio
 pymongo

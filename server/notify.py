@@ -42,11 +42,13 @@ def find_diff(u_id: str, nc: Collection) -> Tuple[List[SkywardClass], List[Skywa
     service = user_obj["service"]
     if sky_data == {}:
         return (None, None)
-    curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades_json()
+    curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades()
     users.update_user(u_id, {"grades": dumps(curr_grades)})
     changed_grades = [] # type: List[SkywardClass]
     removed_grades = [] # type: List[SkywardClass]
     for curr_class, old_class in zip(curr_grades, mongo_grades):
+        print(curr_class)
+        print(old_class)
         changed_grades.append(curr_class - old_class)
         removed_grades.append(old_class - curr_class)
     return (changed_grades, removed_grades)

@@ -1,4 +1,4 @@
-from skyward_api import SkywardAPI, Assignment
+from skyward_api import SkywardAPI, Assignment, SkywardError, SessionError, SkywardClass
 from pymongo import MongoClient
 from pymongo.collection import ReturnDocument, Collection
 from typing import Any, Dict, List, Tuple
@@ -14,6 +14,10 @@ else:
     import server.users as users
 #####
 
+def wait_for(sec: int, interval: float = .1) -> None:
+    for i in range(0, int(sec/interval)):
+        sleep(interval)
+
 def login_to_server():
     server = smtplib.SMTP("smtp.gmail.com", 587)
     server.connect("smtp.gmail.com", 587)
@@ -28,21 +32,7 @@ def login_to_server():
 #####
 GradeList = Dict[str, List[Assignment]]
 
-def get_diff(new_grades: GradeList, old_grades: GradeList) -> GradeList:
-    difference = {} #type: Dict[str, List[Dict[str, str]]]
-
-    for class_name in new_grades.keys():
-        if class_name in old_grades.keys():
-            new_grade_list = new_grades[class_name]
-            old_grade_list = old_grades[class_name]
-            diff = [
-                item
-                for item in new_grade_list if item not in old_grade_list
-            ]
-            difference[class_name] = diff
-    return difference
-
-def find_diff(u_id: str, nc: Collection) -> Tuple[GradeList, GradeList]:
+def find_diff(u_id: str, nc: Collection) -> Tuple[List[SkywardClass], List[SkywardClass]]:
     user_obj = nc.find_one({
         "_id": u_id
     })
@@ -51,21 +41,26 @@ def find_diff(u_id: str, nc: Collection) -> Tuple[GradeList, GradeList]:
     sky_data = user_obj["sky_data"]
     service = user_obj["service"]
     if sky_data == {}:
-        raise RuntimeError("Session destroyed.")
-    curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades()
+        return (None, None)
+    curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades_json()
     users.update_user(u_id, {"grades": dumps(curr_grades)})
-    changed_grades = get_diff(curr_grades, mongo_grades)
-    removed_grades = get_diff(mongo_grades, curr_grades)
+    changed_grades = [] # type: List[SkywardClass]
+    removed_grades = [] # type: List[SkywardClass]
+    for curr_class, old_class in zip(curr_grades, mongo_grades):
+        changed_grades.append(curr_class - old_class)
+        removed_grades.append(old_class - curr_class)
     return (changed_grades, removed_grades)
 
 def send_email(
     email: str,
-    added: GradeList,
-    removed: GradeList
+    added: List[SkywardClass],
+    removed: List[SkywardClass]
 ) -> None:
     changes_text = {}
     changes_html = {}
-    for clas, grade_changes in added.items():
+    for sky_class in added:
+        class_name = sky_class.name
+        grade_changes = sky_class.grades
         change_str_text = ""
         change_str_html = ""
         for change in grade_changes:
@@ -88,17 +83,19 @@ def send_email(
                     assignment_name
                 )
         if change_str_text != "":
-            changes_text[clas] = change_str_text
-            changes_html[clas] = change_str_html
-    for clas, grade_removed in removed.items():
+            changes_text[class_name] = change_str_text
+            changes_html[class_name] = change_str_html
+    for sky_class in removed:
+        class_name = sky_class.name
+        grade_changes = sky_class.grades
         change_str_text = ""
         change_str_html = ""
         for change in grade_changes:
             change_str_text = "\t{0} was removed from the gradebook\n".format(change.name)
             change_str_html = "<li>{0} was removed from the gradebook</li>".format(change.name)
         if change_str_text != "":
-            changes_text[clas] += change_str_text
-            changes_html[clas] += change_str_html
+            changes_text[class_name] += change_str_text
+            changes_html[class_name] += change_str_html
     if changes_text != {}:
         email_str_html = ""
         for key, value in changes_html.items():
@@ -127,12 +124,16 @@ def loop_and_notify(collect: Collection) -> None:
         u_id = notify["_id"]
         email = notify["email"]
         if notify["sky_data"] == {}:
-            return
+            continue
         try:
             added, removed= find_diff(u_id, collect)
             send_email(email, added, removed)
-        except RuntimeError:
-            if notify["sky_data"] != {}:
+        except SkywardError as e:
+            print(str(e))
+            if type(e) != SessionError:
+                wait_for(30)
+                continue
+            if type(e) == SessionError and notify["sky_data"] != {}:
                 users.update_user(u_id, {
                     "sky_data": {}
                 })
@@ -175,19 +176,10 @@ def loop_and_keep_alive(collect: Collection) -> None:
 def main() -> None:
     mins = 0
     while True:
-        try:
-            loop_and_keep_alive(users.users_collection)
-            if mins == 0:
-                loop_and_notify(users.users_collection)
-            mins = (mins + 1) % 5
-        except RuntimeError as e:
-            if "Unable to make request" in str(e):
-                sleep(60)
-                loop_and_keep_alive(users.users_collection)
-            else:
-                raise e
-        finally:
-            sleep(3*60)
-
+        loop_and_keep_alive(users.users_collection)
+        if mins == 0:
+            loop_and_notify(users.users_collection)
+        mins = (mins + 1) % 5
+        wait_for(3*60)
 if __name__ == "__main__":
     main()

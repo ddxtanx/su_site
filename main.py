@@ -1,5 +1,5 @@
 from flask import Flask, url_for, render_template, request, session, redirect
-from skyward_api import SkywardAPI, Assignment
+from skyward_api import SkywardAPI, Assignment, SessionError, SkywardError, SkywardClass
 from flask_socketio import SocketIO, emit
 from typing import Dict, Any, List
 import server.users as users
@@ -60,7 +60,6 @@ def login():
                 data["error"] = "u/p"
             elif "logged in" in str(e):
                 data["error"] = "logged"
-    print(data)
     return render_template("login.html.j2", **data)
 
 @app.route("/register", methods=["GET", "POST"])
@@ -92,7 +91,6 @@ def logout():
 
 @socket.on("login", namespace="/soc/sky_login")
 def sky_login(message):
-    print("Got login.")
     username = message["data"]["username"]
     password = message["data"]["password"]
     service = message["data"]["service"]
@@ -117,7 +115,7 @@ def sky_login(message):
                 "status": "incorrect"
             }
         })
-    except RuntimeError:
+    except SkywardError as e:
         emit("login resp", {
             "data":{
                 "status": "skyward"
@@ -132,7 +130,6 @@ def profile():
         data["service"] = session["service"]
     else:
         data["service"] = ""
-    print(data)
     return render_template("profile.html.j2", **data)
 
 @app.route("/grades")
@@ -141,10 +138,10 @@ def grades():
     return render_template("grades.html.j2", **data)
 
 
-def manual_grade_retrieve(u_id: str) -> GradeList:
+def manual_grade_retrieve(u_id: str) -> List[SkywardClass]:
     user = users.get_user_by_id(u_id)
     sky_data = user["sky_data"]
-    api = SkywardAPI.from_session_data(user["service"], sky_data)
+    api = SkywardAPI.from_session_data(user["service"], sky_data, timeout=30)
     grades = api.get_grades()
     return grades
 
@@ -152,7 +149,7 @@ def manual_grade_retrieve(u_id: str) -> GradeList:
 def get_grades(message):
     u_id = message["data"]["u_id"]
     try:
-        grades = {}
+        grades = [] # type: List[SkywardClass]
         try:
             if "force" not in message["data"]:
                 grades = loads(users.get_user_by_id(u_id)["grades"])
@@ -167,19 +164,12 @@ def get_grades(message):
                 "grades": dumps(grades)
             })
         grades_text = {}
-        for key, item in grades.items():
-            grades_text[key] = list(
-                map(
-                    lambda grade: str(grade),
-                    item
-                )
-            )
+        for sky_class in grades:
+            grades_text[sky_class.name] = sky_class.grades_to_text()
         emit("grades", {
             "data": grades_text
         })
-        print("Sent grades")
-    except RuntimeError as e:
-        print(str(e))
+    except SessionError as e:
         users.update_user(session["id"], {"sky_data": {}})
         emit("error")
         return

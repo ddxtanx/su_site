@@ -1,10 +1,11 @@
 from pymongo import MongoClient
 from pymongo.collection import ReturnDocument
-from skyward_api import SkywardAPI
+from pymongo.errors import AutoReconnect
+from skyward_api import SkywardAPI, SkywardClass
 from validate_email import validate_email
-from typing import Any, Dict
+from typing import Any, Dict, List
 from os import environ
-from pickle import dumps
+from pickle import dumps, loads
 import bcrypt
 import random, string
 
@@ -14,6 +15,133 @@ client = MongoClient("mongodb://{0}:{1}@ds223653.mlab.com:23653/updater".format(
 ))
 db = client["updater"]
 users_collection = db["users"]
+
+def reset_connection():
+    global client, db, users_collection
+    client.close()
+    client = MongoClient("mongodb://{0}:{1}@ds223653.mlab.com:23653/updater".format(
+            environ["db_user"],
+            environ["db_pass"]
+    ))
+    db = client["updater"]
+    users_collection = db["users"]
+
+def get_users() -> List[Any]:
+    try:
+        return list(users_collection.find())
+    except AutoReconnect:
+        reset_connection()
+        return list(users_collection.find())
+
+def get_user_by_query(query: Dict[Any, Any]) -> Any:
+    try:
+        return users_collection.find_one(query)
+    except AutoReconnect:
+        reset_connection()
+        return users_collection.find_one(query)
+
+def update_user_by_query(id_info: Dict[Any, Any], update_info: Dict[Any, Any]) -> None:
+    try:
+        users_collection.update(id_info, {
+            "$set": update_info
+        })
+    except AutoReconnect:
+        reset_connection()
+        users_collection.update(id_info, {
+            "$set": update_info
+        })
+
+class User():
+    def __init__(
+        self,
+        u_id: str,
+        email: str,
+        sky_data: Dict[str, str],
+        service: str,
+        grades: List[SkywardClass]
+    ) -> None:
+        self.id = u_id
+        self.email = email
+        self.sky_data = sky_data
+        self.service = service
+        self.grades = loads(grades)
+
+    @staticmethod
+    def from_login(
+        email: str,
+        password: str
+    ) -> "User":
+        try:
+           user = login(email, password)
+           return User(
+              user["_id"],
+              user["email"],
+              user["sky_data"],
+              user["service"],
+              user["grades"]
+           )
+        except ValueError:
+           return None
+
+    @staticmethod
+    def from_id(u_id: str) -> "User":
+        if u_id == "":
+            return None
+        user = get_user_by_id(u_id)
+        return User(
+            user["_id"],
+            user["email"],
+            user["sky_data"],
+            user["service"],
+            user["grades"]
+         )
+
+    def is_authenticated(self) -> bool:
+        return self.email != ""
+
+    def is_active(self) -> bool:
+        #Change if user system changes
+        return self.is_authenticated()
+
+    def is_anonymous(self) -> bool:
+        return True
+
+    def get_id(self) -> str:
+        return self.id
+
+    def set_sky_data(
+        self,
+        sky_data: Dict[str, str]
+    ):
+        self.sky_data = sky_data
+        update_user(self.id, {
+            "sky_data": sky_data
+        })
+
+    def set_service(
+        self,
+        service: str
+    ) -> None:
+        self.service = service
+        update_user(self.id, {
+            "service": service
+        })
+
+    def set_grades(
+        self,
+        grades: List[SkywardClass]
+    ) -> None:
+        self.grades = grades
+        update_user(self.id, {
+            "grades": dumps(grades)
+        })
+
+def add_user(data: Dict[Any, Any]) -> None:
+    try:
+        users_collection.insert_one(data)
+    except AutoReconnect:
+        reset_connection()
+        users_collection.insert_one(data)
 
 def make_id(length: int) -> str:
     return ''.join(
@@ -52,14 +180,12 @@ def register(
         raise ValueError("Password1 must be the same as password2.")
     if not validate_email(email):
         raise ValueError("Email must be a valid email.")
-    if users_collection.find_one({
+    if get_user_by_query({
         "email": email
     }) is not None:
         raise ValueError("Email already used.")
     u_id = make_id(20)
-    while users_collection.find_one({
-        "_id": u_id
-    }) is not None:
+    while get_user_by_id(u_id) is not None:
         u_id = make_id(20)
     hashed_pw = bcrypt.hashpw(password1.encode(), bcrypt.gensalt())
     user_obj = {
@@ -70,7 +196,7 @@ def register(
         "grades": {},
         "_id": u_id
     }
-    users_collection.insert_one(user_obj)
+    add_user(user_obj)
 
 
 
@@ -98,7 +224,7 @@ def login(
         Incorrect email password combination.
 
     """
-    user = users_collection.find_one({
+    user = get_user_by_query({
         "email": email
     })
     if user is None:
@@ -111,13 +237,11 @@ def login(
     return user
 
 def get_user_by_id(u_id: str) -> ReturnDocument:
-    return users_collection.find_one({
+    return get_user_by_query({
         "_id": u_id
     })
 
 def update_user(u_id: str, data: Dict[str, Any]) -> None:
-    user = users_collection.update_one({
+    update_user_by_query({
         "_id": u_id
-    }, {
-        "$set": data
-    })
+    }, data)

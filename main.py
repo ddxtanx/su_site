@@ -1,8 +1,10 @@
-from flask import Flask, url_for, render_template, request, session, redirect
+from flask import Flask, url_for, render_template, request, redirect
 from skyward_api import SkywardAPI, Assignment, SessionError, SkywardError, SkywardClass
+from flask_login import LoginManager, login_required, current_user, login_user, logout_user
 from flask_socketio import SocketIO, emit
 from typing import Dict, Any, List
 import server.users as users
+from server.users import User
 import os
 from pickle import loads, dumps
 
@@ -13,30 +15,38 @@ socket = SocketIO(app)
 #####
 GradeList = Dict[str, List[Assignment]]
 #####
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(u_id: str):
+    return User.from_id(u_id)
+
+@login_manager.unauthorized_handler
+def unauth():
+    return redirect("/login?error=not_logged_in")
 
 def page_data(name: str) -> Dict[str, Any]:
-    try:
-        session["sky_data"] = users.get_user_by_id(session["id"])["sky_data"]
-    except KeyError:
-        pass
-    log_in = "logged_in" in session.keys() and session["logged_in"]
-    has_sky_data = "sky_data" in session and session["sky_data"] != {}
-    u_id = session["id"] if "id" in session else ""
     data = {
         "css_link": url_for("static", filename="/css/{0}.css".format(name)).replace("//", "/"),
         "js_link": url_for("static", filename="/js/{0}.js".format(name)).replace("//", "/"),
         "name": name,
-        "logged_in": log_in,
-        "hsd": has_sky_data,
-        "u_id": u_id,
+        "logged_in": False,
+        "hsd": False,
+        "u_id": "",
         "default_css_link": url_for("static", filename="/css/sidebar.css").replace("//", "/")
     }
+    if current_user.is_authenticated:
+        current_user.sky_data = users.get_user_by_id(current_user.id)["sky_data"]
+        data["logged_in"] = current_user.is_authenticated()
+        data["hsd"] = current_user.sky_data != {}
+        data["u_id"] = current_user.id
+
     return data
 
 @app.route("/")
 def hello():
-    data = page_data("index")
-    return render_template("default.html.j2", **data)
+    return render_template("default.html.j2", **page_data("index"))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -46,20 +56,15 @@ def login():
         try:
             email = request.form["email"]
             password = request.form["password"]
-            user = users.login(email, password)
-            u_id = user["_id"]
-            sky_data = user["sky_data"]
-            service = user["service"]
-            session["id"] = u_id
-            session["sky_data"] = sky_data
-            session["service"] = service
-            session["logged_in"] = True
+            user = User.from_login(email, password)
+            login_user(user)
             data["logged_in"] = True
         except ValueError as e:
             if "Incorrect" in str(e):
                 data["error"] = "u/p"
             elif "logged in" in str(e):
                 data["error"] = "logged"
+    data.update(request.args.to_dict())
     return render_template("login.html.j2", **data)
 
 @app.route("/register", methods=["GET", "POST"])
@@ -67,7 +72,7 @@ def register():
     data = page_data("register")
     data["error"] = ""
     if request.method == "POST":
-        if "id" in session.keys():
+        if current_user.is_authenticated():
             data["error"] = "logged"
         else:
             email = request.form["email"]
@@ -85,8 +90,9 @@ def register():
     return render_template("register.html.j2", **data)
 
 @app.route("/logout")
+@login_required
 def logout():
-    session.clear()
+    logout_user()
     return redirect("/")
 
 @socket.on("login", namespace="/soc/sky_login")
@@ -98,12 +104,8 @@ def sky_login(message):
         api = SkywardAPI(service)
         api.setup(username, password)
         sess_data = api.get_session_params()
-        users.update_user(session["id"], {
-            "sky_data": sess_data,
-            "service": service
-        })
-        session["sky_data"] = sess_data
-        session["service"] = service
+        current_user.set_sky_data(sess_data)
+        current_user.set_service(service)
         emit("login resp", {
             "data":{
                 "status": "good"
@@ -123,25 +125,23 @@ def sky_login(message):
         })
 
 @app.route("/profile")
+@login_required
 def profile():
     data = page_data("profile")
     data.update(request.args.to_dict())
-    if "service" in session:
-        data["service"] = session["service"]
-    else:
-        data["service"] = ""
+    data["service"] = current_user.service
     return render_template("profile.html.j2", **data)
 
 @app.route("/grades")
+@login_required
 def grades():
     data = page_data("grades")
     return render_template("grades.html.j2", **data)
 
 
 def manual_grade_retrieve(u_id: str) -> List[SkywardClass]:
-    user = users.get_user_by_id(u_id)
-    sky_data = user["sky_data"]
-    api = SkywardAPI.from_session_data(user["service"], sky_data, timeout=30)
+    sky_data = current_user.sky_data
+    api = SkywardAPI.from_session_data(current_user.service, sky_data, timeout=30)
     grades = api.get_grades()
     return grades
 
@@ -152,17 +152,13 @@ def get_grades(message):
         grades = [] # type: List[SkywardClass]
         try:
             if "force" not in message["data"]:
-                grades = loads(users.get_user_by_id(u_id)["grades"])
+                grades = current_user.grades
             else:
                 grades = manual_grade_retrieve(u_id)
-                users.update_user(u_id, {
-                    "grades": dumps(grades)
-                })
+                current_user.set_grades(grades)
         except (TypeError, KeyError):
             grades = manual_grade_retrieve(u_id)
-            users.update_user(u_id, {
-                "grades": dumps(grades)
-            })
+            current_user.set_grades(grades)
         grades_text = {}
         for sky_class in grades:
             grades_text[sky_class.name] = sky_class.grades_to_text()
@@ -170,7 +166,7 @@ def get_grades(message):
             "data": grades_text
         })
     except SessionError as e:
-        users.update_user(session["id"], {"sky_data": {}})
+        current_user.set_sky_data({})
         emit("error")
         return
 

@@ -32,10 +32,8 @@ def login_to_server():
 #####
 GradeList = Dict[str, List[Assignment]]
 
-def find_diff(u_id: str, nc: Collection) -> Tuple[List[SkywardClass], List[SkywardClass]]:
-    user_obj = nc.find_one({
-        "_id": u_id
-    })
+def find_diff(u_id: str) -> Tuple[List[SkywardClass], List[SkywardClass]]:
+    user_obj = users.get_user_by_id(u_id)
     mongo_grades_pkl = user_obj["grades"]
     mongo_grades = loads(mongo_grades_pkl)
     sky_data = user_obj["sky_data"]
@@ -47,8 +45,6 @@ def find_diff(u_id: str, nc: Collection) -> Tuple[List[SkywardClass], List[Skywa
     changed_grades = [] # type: List[SkywardClass]
     removed_grades = [] # type: List[SkywardClass]
     for curr_class, old_class in zip(curr_grades, mongo_grades):
-        print(curr_class)
-        print(old_class)
         changed_grades.append(curr_class - old_class)
         removed_grades.append(old_class - curr_class)
     return (changed_grades, removed_grades)
@@ -120,67 +116,67 @@ def send_email(
         server = login_to_server()
         server.sendmail(email, email, msg.as_string())
 
-def loop_and_notify(collect: Collection) -> None:
-    notif_users = collect.find()
-    for notify in notif_users:
-        u_id = notify["_id"]
-        email = notify["email"]
-        if notify["sky_data"] == {}:
-            continue
-        try:
-            added, removed= find_diff(u_id, collect)
-            send_email(email, added, removed)
-        except SkywardError as e:
-            print(str(e))
-            if type(e) != SessionError:
-                wait_for(30)
-                continue
-            if type(e) == SessionError and notify["sky_data"] != {}:
-                users.update_user(u_id, {
-                    "sky_data": {}
-                })
-                server = login_to_server()
-                message_text = (
-                    "Your session has been destroyed. "
-                    "Please retry your login at "
-                    "{0}/profile. "
-                    "Thank you! \n\n"
-                    "--Skyward Updater".format(environ["url"])
-                )
-                message_html = (
-                    "<p>"
-                    "Your session has been destroyed. "
-                    "Please retry your login "
-                    "<a href=\"{0}/profile\"> here. </a>"
-                    "Thank you!"
-                    "</p><br/><br/>"
-                    "--Skyward Updater".format(environ["url"])
-                )
-                msg = MIMEMultipart('alternative')
-                msg['Subject'] = "Session destroyed! :("
-                msg['From'] = environ["email"]
-                msg['To'] = email
+def handle_session_error(u_id: str, email: str):
+  users.update_user(u_id, {
+      "sky_data": {}
+  })
+  server = login_to_server()
+  message_text = (
+      "Your session has been destroyed. "
+      "Please retry your login at "
+      "{0}/profile. "
+      "Thank you! \n\n"
+      "--Skyward Updater".format(environ["url"])
+  )
+  message_html = (
+      "<p>"
+      "Your session has been destroyed. "
+      "Please retry your login "
+      "<a href=\"{0}/profile\"> here. </a>"
+      "Thank you!"
+      "</p><br/><br/>"
+      "--Skyward Updater".format(environ["url"])
+  )
+  msg = MIMEMultipart('alternative')
+  msg['Subject'] = "Session destroyed! :("
+  msg['From'] = environ["email"]
+  msg['To'] = email
 
-                msg.attach(MIMEText(message_text, "plain"))
-                msg.attach(MIMEText(message_html, "html"))
+  msg.attach(MIMEText(message_text, "plain"))
+  msg.attach(MIMEText(message_html, "html"))
 
-                server.sendmail(environ["email"], email, msg.as_string())
+  server.sendmail(environ["email"], email, msg.as_string())
 
-def loop_and_keep_alive(collect: Collection) -> None:
-    notifiers = collect.find()
-    for notify in notifiers:
-        sky_data = notify["sky_data"]
-        if sky_data != {}:
-            service = notify["service"]
-            user_api = SkywardAPI.from_session_data(service, sky_data)
-            user_api.keep_alive()
+def notify(notify) -> None:
+    u_id = notify["_id"]
+    email = notify["email"]
+    if notify["sky_data"] == {}:
+        return
+    added, removed= find_diff(u_id)
+    send_email(email, added, removed)
+
+def keep_alive(notify) -> None:
+    sky_data = notify["sky_data"]
+    if sky_data == {}:
+        return
+
+    service = notify["service"]
+    user_api = SkywardAPI.from_session_data(service, sky_data)
+    user_api.keep_alive()
 
 def main() -> None:
     mins = 0
     while True:
-        loop_and_keep_alive(users.users_collection)
-        if mins == 0:
-            loop_and_notify(users.users_collection)
+        notify_users = users.get_users()
+        for user in notify_users:
+            try:
+                keep_alive(user)
+                if mins == 0:
+                    notify(user)
+            except SessionError:
+                handle_session_error(user["_id"], user["email"])
+            except SkywardError:
+                wait_for(30)
         mins = (mins + 1) % 5
         wait_for(3*60)
 if __name__ == "__main__":

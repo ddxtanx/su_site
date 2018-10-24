@@ -1,8 +1,9 @@
 flask
 mypy
-skyward_api==1.5.3
+skyward_api
 eventlet
 flask_socketio
 pymongo
 validate_email
 bcrypt
+flask-login

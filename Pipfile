@@ -12,6 +12,7 @@ bcrypt = "*"
 Flask = "*"
 Flask-SocketIO = "*"
 validate_email = "*"
+Flask-Login = "*"
 
 [dev-packages]
 

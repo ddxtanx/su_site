@@ -4,6 +4,8 @@
       <h2>Incorrect username/password.</h2>
     {% elif error == "logged" %}
       <h2>You are already logged in!</h2>
+    {% elif error == "not_logged_in" %}
+      <h2> You are not logged in! Please log in to continue! </h2>
     {% endif %}
     <form method="post" action="/login">
         <input type="email" name="email" placeholder="Email:" />

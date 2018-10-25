@@ -7,3 +7,5 @@ pymongo
 validate_email
 bcrypt
 flask-login
+celery[redis]
+psutil

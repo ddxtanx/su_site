@@ -6,15 +6,32 @@
 function SocCreator(url){
     return io.connect(location.host + '/' + url);
 }
+var normal_soc = SocCreator("soc/sky_login");
+var task_soc = SocCreator("soc/tasks");
+var task_id;
+var int;
+
+normal_soc.on("success", function(message){
+  task_id = message.data.t_id
+  int = setInterval(check_task, 1000)
+})
+function check_task(){
+  task_soc.emit("check login task", {
+    "data": {
+      "t_id": task_id
+    }
+  });
+}
+
 
 $(document).ready(function(){
   $("#notify").hide()
-  var soc = SocCreator("soc/sky_login");
+
   $("#submit").click(function(){
     var uname = $("#sky_name").val()
     var upass = $("#sky_pass").val()
     var serv = $("#service").val()
-    soc.emit("login", { data:{
+    normal_soc.emit("login", { data:{
       "username": uname,
       "password": upass,
       "service": serv
@@ -22,7 +39,8 @@ $(document).ready(function(){
     $("#notify").show()
   });
 
-  soc.on("login resp", function(message){
+  task_soc.on("ready", function(message){
+    window.clearInterval(int)
     var data = message.data;
     if(data.status === "good"){
       $("#notify").text("Succsessfully logged in!");

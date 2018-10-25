@@ -2,11 +2,16 @@ from flask import Flask, url_for, render_template, request, redirect
 from skyward_api import SkywardAPI, Assignment, SessionError, SkywardError, SkywardClass
 from flask_login import LoginManager, login_required, current_user, login_user, logout_user
 from flask_socketio import SocketIO, emit
+from server.tasks import login_task, get_grades_task
 from typing import Dict, Any, List
 import server.users as users
+from server.users import make_id
 from server.users import User
 import os
+from celery.result import AsyncResult
 from pickle import loads, dumps
+
+tasks = {} # type: Dict[str, AsyncResult]
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ["key"]
@@ -95,34 +100,25 @@ def logout():
     logout_user()
     return redirect("/")
 
+def make_task(task: AsyncResult) -> str:
+    task_id = make_id(20)
+    while task_id in tasks:
+        task_id = make_id(20)
+    tasks[task_id] = task
+    return task_id
 @socket.on("login", namespace="/soc/sky_login")
 def sky_login(message):
     username = message["data"]["username"]
     password = message["data"]["password"]
     service = message["data"]["service"]
-    try:
-        api = SkywardAPI(service)
-        api.setup(username, password)
-        sess_data = api.get_session_params()
-        current_user.set_sky_data(sess_data)
-        current_user.set_service(service)
-        emit("login resp", {
-            "data":{
-                "status": "good"
-            }
-        })
-    except ValueError:
-        emit("login resp", {
-            "data":{
-                "status": "incorrect"
-            }
-        })
-    except SkywardError as e:
-        emit("login resp", {
-            "data":{
-                "status": "skyward"
-            }
-        })
+    u_id = current_user.id
+    sess_data_results = login_task.delay(username, password, service)
+    task_id = make_task(sess_data_results)
+    emit("success", {
+        "data":{
+            "t_id": task_id
+        }
+    })
 
 @app.route("/profile")
 @login_required
@@ -138,27 +134,32 @@ def grades():
     data = page_data("grades")
     return render_template("grades.html.j2", **data)
 
-
-def manual_grade_retrieve(u_id: str) -> List[SkywardClass]:
-    sky_data = current_user.sky_data
-    api = SkywardAPI.from_session_data(current_user.service, sky_data, timeout=30)
-    grades = api.get_grades()
-    return grades
-
+def manual_grade_retrieve_task(
+    sky_data: Dict[str, str],
+    service: str
+) -> str:
+    results = get_grades_task.delay(service, sky_data)
+    task_id = make_task(results)
+    emit("success", {
+        "data": {
+            "t_id": task_id
+        }
+    })
 @socket.on("get grades", namespace="/soc/grades")
 def get_grades(message):
-    u_id = message["data"]["u_id"]
+    sky_data = current_user.sky_data
+    service = current_user.service
     try:
         grades = [] # type: List[SkywardClass]
         try:
             if "force" not in message["data"]:
                 grades = current_user.grades
             else:
-                grades = manual_grade_retrieve(u_id)
-                current_user.set_grades(grades)
+                manual_grade_retrieve_task(sky_data, service)
+                return
         except (TypeError, KeyError):
-            grades = manual_grade_retrieve(u_id)
-            current_user.set_grades(grades)
+            manual_grade_retrieve_task(sky_data, service)
+            return
         grades_text = {}
         for sky_class in grades:
             grades_text[sky_class.name] = sky_class.grades_to_text()
@@ -169,6 +170,56 @@ def get_grades(message):
         current_user.set_sky_data({})
         emit("error")
         return
+
+@socket.on("check grades task", namespace="/soc/tasks")
+def check_grades_task(message):
+    def process_grades(grades: List[SkywardClass]) -> None:
+        current_user.set_grades(grades)
+        text_grades = {}
+        for sky_class in grades:
+            text_grades[sky_class.name] = sky_class.grades_to_text()
+        emit("ready", {
+            "data": text_grades
+        })
+    check_task(message, process_grades)
+
+@socket.on("check login task", namespace="/soc/tasks")
+def check_login_task(message):
+    def process_sky_data(sky_data: Dict[str, str]) -> None:
+        if "error" in sky_data:
+            print("error")
+            emit("ready", {
+                "data": {
+                    "status": "incorrect"
+                }
+            })
+            return
+        print("good")
+        current_user.set_sky_data(sky_data)
+        emit("ready", {
+            "data": {
+                "status": "good"
+            }
+        })
+    check_task(message, process_sky_data)
+
+def check_task(message, fn):
+    t_id = message["data"]["t_id"]
+    task = tasks[t_id]
+    try:
+        if task.ready():
+            result = task.get()
+            del tasks[t_id]
+            fn(result)
+        else:
+            emit("not ready")
+    except SkywardError:
+        current_user.set_sky_data({})
+        emit("error")
+    except ValueError:
+        emit("ready", {
+            "data": "incorrect"
+        })
 
 if __name__=="__main__":
     socket.run(app, host=os.environ["HOST"], port=int(os.environ["PORT"]))

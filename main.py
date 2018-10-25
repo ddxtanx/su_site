@@ -3,15 +3,15 @@ from skyward_api import SkywardAPI, Assignment, SessionError, SkywardError, Skyw
 from flask_login import LoginManager, login_required, current_user, login_user, logout_user
 from flask_socketio import SocketIO, emit
 from server.tasks import login_task, get_grades_task
+from server.tasks import app as celery_app
 from typing import Dict, Any, List
 import server.users as users
 from server.users import make_id
 from server.users import User
 import os
 from celery.result import AsyncResult
+from celery.task.control import revoke
 from pickle import loads, dumps
-
-tasks = {} # type: Dict[str, AsyncResult]
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ["key"]
@@ -43,7 +43,7 @@ def page_data(name: str) -> Dict[str, Any]:
     }
     if current_user.is_authenticated:
         current_user.sky_data = users.get_user_by_id(current_user.id)["sky_data"]
-        data["logged_in"] = current_user.is_authenticated()
+        data["logged_in"] = current_user.is_authenticated
         data["hsd"] = current_user.sky_data != {}
         data["u_id"] = current_user.id
 
@@ -55,20 +55,19 @@ def hello():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    data = page_data("login")
-    data["error"] = ""
+    data = {} # type: Dict[str, Any]
     if request.method == "POST":
-        try:
-            email = request.form["email"]
-            password = request.form["password"]
-            user = User.from_login(email, password)
+        email = request.form["email"]
+        password = request.form["password"]
+        user = User.from_login(email, password)
+        if user is None:
+            data["error"] = "u/p"
+        elif current_user.is_authenticated:
+            data["error"] = "logged"
+        else:
             login_user(user)
             data["logged_in"] = True
-        except ValueError as e:
-            if "Incorrect" in str(e):
-                data["error"] = "u/p"
-            elif "logged in" in str(e):
-                data["error"] = "logged"
+    data.update(page_data("login"))
     data.update(request.args.to_dict())
     return render_template("login.html.j2", **data)
 
@@ -77,7 +76,7 @@ def register():
     data = page_data("register")
     data["error"] = ""
     if request.method == "POST":
-        if current_user.is_authenticated():
+        if current_user.is_authenticated:
             data["error"] = "logged"
         else:
             email = request.form["email"]
@@ -85,6 +84,7 @@ def register():
             p2 = request.form["password2"]
             try:
                 users.register(email, p1, p2)
+                data["error"] = "none"
             except ValueError as e:
                 if "must be the same" in str(e):
                     data["error"] = "same"
@@ -100,12 +100,6 @@ def logout():
     logout_user()
     return redirect("/")
 
-def make_task(task: AsyncResult) -> str:
-    task_id = make_id(20)
-    while task_id in tasks:
-        task_id = make_id(20)
-    tasks[task_id] = task
-    return task_id
 @socket.on("login", namespace="/soc/sky_login")
 def sky_login(message):
     username = message["data"]["username"]
@@ -113,10 +107,9 @@ def sky_login(message):
     service = message["data"]["service"]
     u_id = current_user.id
     sess_data_results = login_task.delay(username, password, service)
-    task_id = make_task(sess_data_results)
     emit("success", {
         "data":{
-            "t_id": task_id
+            "t_id": sess_data_results.task_id
         }
     })
 
@@ -131,6 +124,8 @@ def profile():
 @app.route("/grades")
 @login_required
 def grades():
+    if not current_user.is_active():
+        return redirect("/profile?error=destroyed")
     data = page_data("grades")
     return render_template("grades.html.j2", **data)
 
@@ -139,10 +134,9 @@ def manual_grade_retrieve_task(
     service: str
 ) -> str:
     results = get_grades_task.delay(service, sky_data)
-    task_id = make_task(results)
     emit("success", {
         "data": {
-            "t_id": task_id
+            "t_id": results.task_id
         }
     })
 @socket.on("get grades", namespace="/soc/grades")
@@ -203,11 +197,10 @@ def check_login_task(message):
 
 def check_task(message, fn):
     t_id = message["data"]["t_id"]
-    task = tasks[t_id]
+    task = AsyncResult(id=t_id, app=celery_app)
     try:
         if task.ready():
             result = task.get()
-            del tasks[t_id]
             fn(result)
         else:
             emit("not ready")
@@ -218,6 +211,13 @@ def check_task(message, fn):
         emit("ready", {
             "data": "incorrect"
         })
+
+@socket.on("cancel", namespace="/soc/tasks")
+def cancel_task(message):
+    t_id = message["data"]["t_id"]
+    task = AsyncResult(id=t_id, app=celery_app)
+    task.revoke(terminate=True, signal='SIGKILL')
+    emit("cancel success")
 
 if __name__=="__main__":
     socket.run(app, host=os.environ["HOST"], port=int(os.environ["PORT"]))

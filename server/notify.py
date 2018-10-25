@@ -177,7 +177,7 @@ def main() -> None:
                 handle_session_error(user["_id"], user["email"])
             except SkywardError:
                 wait_for(30)
-        mins = (mins + 1) % 5
-        wait_for(3*60)
+        mins = (mins + 1) % 10
+        wait_for(60)
 if __name__ == "__main__":
     main()

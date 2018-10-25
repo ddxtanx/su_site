@@ -64,7 +64,7 @@ class User():
         self.email = email
         self.sky_data = sky_data
         self.service = service
-        self.grades = loads(grades)
+        self.grades = grades
 
     @staticmethod
     def from_login(
@@ -78,7 +78,7 @@ class User():
               user["email"],
               user["sky_data"],
               user["service"],
-              user["grades"]
+              loads(user["grades"])
            )
         except ValueError:
            return None
@@ -93,7 +93,7 @@ class User():
             user["email"],
             user["sky_data"],
             user["service"],
-            user["grades"]
+            loads(user["grades"])
          )
 
     def is_authenticated(self) -> bool:
@@ -101,7 +101,7 @@ class User():
 
     def is_active(self) -> bool:
         #Change if user system changes
-        return self.is_authenticated()
+        return self.is_authenticated() and self.sky_data != {}
 
     def is_anonymous(self) -> bool:
         return True
@@ -112,7 +112,7 @@ class User():
     def set_sky_data(
         self,
         sky_data: Dict[str, str]
-    ):
+    ) -> None:
         self.sky_data = sky_data
         update_user(self.id, {
             "sky_data": sky_data

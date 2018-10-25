@@ -27,7 +27,7 @@ function check_task(){
 $(document).ready(function(){
   $("#notify").hide()
 
-  $("#submit").click(function(){
+  $("#sky_form").on("submit", function(){
     var uname = $("#sky_name").val()
     var upass = $("#sky_pass").val()
     var serv = $("#service").val()
@@ -37,7 +37,8 @@ $(document).ready(function(){
       "service": serv
     }});
     $("#notify").show()
-  });
+    return false;
+  })
 
   task_soc.on("ready", function(message){
     window.clearInterval(int)
@@ -55,4 +56,14 @@ $(document).ready(function(){
     }
   })
 
+});
+
+$(window).on("beforeunload", function(){
+  if(task_id != undefined){
+    task_soc.emit("cancel", {
+      "data": {
+        "t_id": task_id
+      }
+    })
+  }
 })

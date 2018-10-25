@@ -29,15 +29,24 @@ function check_task(){
 }
 
 task_soc.on("ready", function(message){
-  grades = message.data
-  write_grades(grades)
-  window.clearInterval(interval)
+  $("#cancel").hide();
+  $("#force").show()
+  grades = message.data;
+  write_grades(grades);
+  window.clearInterval(interval);
 })
 
 
 normal_soc.on("success", function(message){
   task_id = message.data.t_id;
   interval = setInterval(check_task, 1000)
+})
+
+task_soc.on("cancel success", function(){
+  window.clearInterval(interval)
+  $("#notify").text("Request cancelled.")
+  $("#cancel").hide();
+  $("#force").show();
 })
 
 function write_grades(grades){
@@ -60,6 +69,7 @@ function write_grades(grades){
   });
 }
 $(document).ready(function(){
+  $("#cancel").hide();
   normal_soc.on("grades", function(message){
     grades = message.data;
     write_grades(grades)
@@ -69,12 +79,34 @@ $(document).ready(function(){
     window.location.href="/profile?error=destroyed";
   })
   $("#force").click(function(){
-    $("#grades").empty()
-    $("#notify").show()
+    $("#cancel").show();
+    $("#force").hide();
+    $("#grades").empty();
+    $("#notify").show();
     normal_soc.emit("get grades", {
       "data": {
         "force": true
       }
     })
-  })
+  });
+
+  $("#cancel").click(function(){
+    $("#notify").text("Cancelling request.")
+    task_soc.emit("cancel", {
+      "data": {
+        "t_id": task_id
+      }
+    });
+  });
+});
+
+$(window).on("beforeunload", function(){
+  if(task_id != undefined){
+    console.log("Cancelling")
+    task_soc.emit("cancel", {
+      "data": {
+        "t_id": task_id
+      }
+    });
+  }
 });

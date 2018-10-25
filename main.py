@@ -187,14 +187,12 @@ def check_grades_task(message):
 def check_login_task(message):
     def process_sky_data(sky_data: Dict[str, str]) -> None:
         if "error" in sky_data:
-            print("error")
             emit("ready", {
                 "data": {
                     "status": "incorrect"
                 }
             })
             return
-        print("good")
         current_user.set_sky_data(sky_data)
         emit("ready", {
             "data": {

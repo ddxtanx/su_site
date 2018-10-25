@@ -27,10 +27,6 @@ def get_grades_task(
     service: str,
     sky_data: Dict[str, str],
 ) -> List[SkywardClass]:
-    print("Getting grades")
-    print(sky_data)
     api = SkywardAPI.from_session_data(service, sky_data, timeout=60)
-    print("Setup api")
     grades = api.get_grades()
-    print("Got grade")
     return grades

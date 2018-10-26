@@ -1,5 +1,5 @@
 from flask import Flask, url_for, render_template, request, redirect
-from skyward_api import SkywardAPI, Assignment, SessionError, SkywardError, SkywardClass
+from skyward_api import SessionError, SkywardError, SkywardClass
 from flask_login import LoginManager, login_required, current_user, login_user, logout_user
 from flask_socketio import SocketIO, emit
 from server.tasks import login_task, get_grades_task
@@ -12,14 +12,15 @@ import os
 from celery.result import AsyncResult
 from celery.task.control import revoke
 from pickle import loads, dumps
+from flask_sslify import SSLify
+
 
 app = Flask(__name__)
+app.debug = os.environ["debugging"] if "debugging" in os.environ else False
+ssl = SSLify(app)
 app.config["SECRET_KEY"] = os.environ["key"]
 socket = SocketIO(app)
 
-#####
-GradeList = Dict[str, List[Assignment]]
-#####
 login_manager = LoginManager()
 login_manager.init_app(app)
 
@@ -30,6 +31,17 @@ def load_user(u_id: str):
 @login_manager.unauthorized_handler
 def unauth():
     return redirect("/login?error=not_logged_in")
+
+def manual_grade_retrieve_task(
+    sky_data: Dict[str, str],
+    service: str
+) -> None:
+    results = get_grades_task.delay(service, sky_data)
+    emit("success", {
+        "data": {
+            "t_id": results.task_id
+        }
+    })
 
 def page_data(name: str) -> Dict[str, Any]:
     data = {
@@ -100,6 +112,32 @@ def logout():
     logout_user()
     return redirect("/")
 
+@app.route("/profile")
+@login_required
+def profile():
+    data = page_data("profile")
+    data.update(request.args.to_dict())
+    data["service"] = current_user.service
+    return render_template("profile.html.j2", **data)
+
+@app.route("/grades")
+@login_required
+def grades():
+    if not current_user.is_active():
+        return redirect("/profile?error=no_data")
+    data = page_data("grades")
+    return render_template("grades.html.j2", **data)
+
+@app.route("/skyward")
+@login_required
+def skyward_page():
+    if not current_user.is_active():
+        return redirect("/profile?error=no_data")
+    data = page_data("skyward")
+    data.update(current_user.sky_data)
+    data["url"] = "https://skyward.iscorp.com/scripts/wsisa.dll/WService={0}/sfhome01.w".format(current_user.service)
+    return render_template("skyward.html.j2", **data)
+
 @socket.on("login", namespace="/soc/sky_login")
 def sky_login(message):
     username = message["data"]["username"]
@@ -113,32 +151,6 @@ def sky_login(message):
         }
     })
 
-@app.route("/profile")
-@login_required
-def profile():
-    data = page_data("profile")
-    data.update(request.args.to_dict())
-    data["service"] = current_user.service
-    return render_template("profile.html.j2", **data)
-
-@app.route("/grades")
-@login_required
-def grades():
-    if not current_user.is_active():
-        return redirect("/profile?error=destroyed")
-    data = page_data("grades")
-    return render_template("grades.html.j2", **data)
-
-def manual_grade_retrieve_task(
-    sky_data: Dict[str, str],
-    service: str
-) -> str:
-    results = get_grades_task.delay(service, sky_data)
-    emit("success", {
-        "data": {
-            "t_id": results.task_id
-        }
-    })
 @socket.on("get grades", namespace="/soc/grades")
 def get_grades(message):
     sky_data = current_user.sky_data
@@ -194,7 +206,6 @@ def check_login_task(message):
             }
         })
     check_task(message, process_sky_data)
-
 def check_task(message, fn):
     t_id = message["data"]["t_id"]
     task = AsyncResult(id=t_id, app=celery_app)
@@ -218,6 +229,7 @@ def cancel_task(message):
     task = AsyncResult(id=t_id, app=celery_app)
     task.revoke(terminate=True, signal='SIGKILL')
     emit("cancel success")
+
 
 if __name__=="__main__":
     socket.run(app, host=os.environ["HOST"], port=int(os.environ["PORT"]))

@@ -6,10 +6,22 @@
 {% endblock %}
 
 {% block content %}
+<h3>
+  Your Skyward password is not stored on the server, only a session
+  token that you can revoke by logging into Skyward again. In other words,
+  Skyward Updater does not have direct access to your account, it only
+  has access by a sort of ID badge that you can destroy at any time
+  by logging into your Skyward account manually. <i>If you want to
+  remain logged in, do not log into your Skyward account manually.</i>
+  To visit Skyward while also remaining logged in, click
+  <a href="/skyward">here.</a>
+</h3>
   {% if not hsd %}
     <div id="sky_login">
       {% if error == "destroyed" %}
         <h1>Your session has been destroyed by skyward, please log in again.</h1>
+      {% elif error == "no_data" %}
+        <h1>You need to log into Skyward to do that!</h1>
       {% endif %}
       <h2>Log into Skyward:</h2>
       <form id="sky_form">
@@ -19,14 +31,6 @@
         <input type="submit" id="submit" value="Login"/>
       </form>
 
-      <h3>
-        Your Skyward password is not stored on the server, only a session
-        token that you can revoke by logging into Skyward again. In other words,
-        Skyward Updater does not have direct access to your account, it only
-        has access by a sort of ID badge that you can destroy at any time
-        by logging into your Skyward account manually. <i>If you want to
-        remain logged in, do not log into your Skyward account manually.</i>
-      </h3>
       <h3>
         To find your Skyward Service, go to the Skyward link for your school and
         copy/paste the portion <i>after</i> "WService=" but before the "/".

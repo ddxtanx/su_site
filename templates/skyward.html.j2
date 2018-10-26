@@ -1,0 +1,13 @@
+{% extends "default.html.j2" %}
+
+{% block content %}
+  <h2>
+    This will take you to Skyward without needing to log in and without destroying
+    your Sky-Updater session as a normal login would.
+  </h2>
+  <form method="POST" action="{{url}}" id="redirform" target="_blank">
+    <input type="hidden" name="sessionid" value="{{sessid}}" />
+    <input type="hidden" name="encses" value="{{encses}}" />
+    <input type="submit" value="Go to Skyward." />
+  </form>
+{% endblock %}

@@ -45,8 +45,7 @@ $(document).ready(function(){
     var data = message.data;
     if(data.status === "good"){
       $("#notify").text("Succsessfully logged in!");
-      $("#grades_link").css("display", "inline");
-      $("#notifier_link").css("display", "inline");
+      $(".hsd").css("display", "inline");
     } else if(data.status === "incorrect"){
       $("#sky_name").val("")
       $("#sky_pass").val("")

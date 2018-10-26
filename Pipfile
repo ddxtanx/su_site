@@ -15,6 +15,7 @@ validate_email = "*"
 Flask-Login = "*"
 celery = {version = "*", extras = ["redis"]}
 psutil = "*"
+Flask-SSLify = "*"
 
 [dev-packages]
 

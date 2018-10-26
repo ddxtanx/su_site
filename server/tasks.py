@@ -1,6 +1,7 @@
 from celery import Celery
 from typing import Dict, List
 from skyward_api import SkywardAPI, SkywardClass
+from requests import post
 from os import environ
 
 app = Celery("server.tasks")
@@ -13,8 +14,7 @@ def login_task(
     service: str,
 ) -> Dict[str, str]:
     try:
-        api = SkywardAPI(service)
-        api.setup(username, password)
+        api = SkywardAPI.from_username_password(username, password, service)
         sess_data = api.get_session_params()
         return sess_data
     except ValueError:

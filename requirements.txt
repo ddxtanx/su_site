@@ -9,3 +9,4 @@ bcrypt
 flask-login
 celery[redis]
 psutil
+Flask-SSLify

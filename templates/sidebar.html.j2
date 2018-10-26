@@ -5,11 +5,13 @@
     <a href="/profile">Profile</a>
     <a href="/logout">Logout</a>
     <div id="hsd">
-    {% if hsd %}
-      <a href="/grades" id="grades_link">Grades</a>
-    {% else %}
-      <a href="/grades" id="grades_link" style="display: none">Grades</a>
-    {% endif %}
+    {% for name in ["grades", "skyward"] %}
+      {% if hsd %}
+        <a href="/{{ name }}" class="hsd" id="{{ name }}_link">{{ name|title }}</a>
+      {% else %}
+        <a href="/{{ name }}" class="hsd" id="{{ name }}_link" style="display: none;">{{ name|title }}</a>
+      {% endif %}
+    {% endfor %}
     </div>
   </div>
   {% else %}

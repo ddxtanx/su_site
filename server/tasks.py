@@ -6,7 +6,6 @@ from os import environ
 
 app = Celery("server.tasks")
 app.config_from_object("celeryconfig")
-
 @app.task
 def login_task(
     username: str,

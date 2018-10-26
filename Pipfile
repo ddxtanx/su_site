@@ -5,16 +5,17 @@ name = "pypi"
 
 [packages]
 mypy = "*"
-skyward-api = "==1.5.3"
+skyward-api = "*"
 eventlet = "*"
 pymongo = "*"
 bcrypt = "*"
+celery = {version = "*", extras = ["redis"]}
+psutil = "*"
+kombu-fernet-serializers = {ref = "v0.1.0", git = "git://github.com/heroku/kombu-fernet-serializers.git"}
 Flask = "*"
 Flask-SocketIO = "*"
 validate_email = "*"
 Flask-Login = "*"
-celery = {version = "*", extras = ["redis"]}
-psutil = "*"
 Flask-SSLify = "*"
 
 [dev-packages]

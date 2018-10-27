@@ -25,7 +25,7 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 
 @login_manager.user_loader
-def load_user(u_id: str):
+def load_user(u_id: str) -> User:
     return User.from_id(u_id)
 
 @login_manager.unauthorized_handler
@@ -168,7 +168,7 @@ def get_grades(message):
             return
         grades_text = {}
         for sky_class in grades:
-            grades_text[sky_class.name] = sky_class.grades_to_text()
+            grades_text[sky_class.skyward_title()] = sky_class.grades_to_text()
         emit("grades", {
             "data": grades_text
         })
@@ -183,7 +183,7 @@ def check_grades_task(message):
         current_user.set_grades(grades)
         text_grades = {}
         for sky_class in grades:
-            text_grades[sky_class.name] = sky_class.grades_to_text()
+            text_grades[sky_class.skyward_title()] = sky_class.grades_to_text()
         emit("ready", {
             "data": text_grades
         })

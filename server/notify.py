@@ -40,7 +40,10 @@ def find_diff(u_id: str) -> Tuple[List[SkywardClass], List[SkywardClass]]:
     service = user_obj["service"]
     if sky_data == {}:
         return (None, None)
-    curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades()
+    try:
+        curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades()
+    except SessionError:
+        handle_session_error(u_id, user_obj["email"])
     users.update_user(u_id, {"grades": dumps(curr_grades)})
     changed_grades = [] # type: List[SkywardClass]
     removed_grades = [] # type: List[SkywardClass]

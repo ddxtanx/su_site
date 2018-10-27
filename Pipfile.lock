@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "cf176fc37e8777342a570fb127c0bab281cda1790d006513c93fb89dc4e69f90"
+            "sha256": "e2c9dcd0c7637ae3ab3c92abbdefc894084f416946d3cba42bba6d26a9f61628"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -553,11 +553,11 @@
         },
         "skyward-api": {
             "hashes": [
-                "sha256:7ba4711ddaeb212a0fda77b4d72e258ba910c7b1ef556265007fcd0fe15b439a",
-                "sha256:9af5fc7ecacf2a59b03eae505a4aa9b9f2fb341e8409adcbbc4897c174ce6ad7"
+                "sha256:4fea4729f6234c5146890ac9ea99a30448234957ee6378b25dff345d211702d0",
+                "sha256:bbd49559937a44e5585ccdf07b2c75b7677cdc0932603369acdf3446d7fd2a89"
             ],
             "index": "pypi",
-            "version": "==1.5.6"
+            "version": "==1.5.7"
         },
         "tqdm": {
             "hashes": [

@@ -39,18 +39,18 @@ def find_diff(u_id: str) -> Tuple[List[SkywardClass], List[SkywardClass]]:
     sky_data = user_obj["sky_data"]
     service = user_obj["service"]
     if sky_data == {}:
-        return (None, None)
+        raise SessionError("Session was destroyed.")
     try:
         curr_grades = SkywardAPI.from_session_data(service, sky_data).get_grades()
+        users.update_user(u_id, {"grades": dumps(curr_grades)})
+        changed_grades = [] # type: List[SkywardClass]
+        removed_grades = [] # type: List[SkywardClass]
+        for curr_class, old_class in zip(curr_grades, mongo_grades):
+            changed_grades.append(curr_class - old_class)
+            removed_grades.append(old_class - curr_class)
+        return (changed_grades, removed_grades)
     except SessionError:
-        handle_session_error(u_id, user_obj["email"])
-    users.update_user(u_id, {"grades": dumps(curr_grades)})
-    changed_grades = [] # type: List[SkywardClass]
-    removed_grades = [] # type: List[SkywardClass]
-    for curr_class, old_class in zip(curr_grades, mongo_grades):
-        changed_grades.append(curr_class - old_class)
-        removed_grades.append(old_class - curr_class)
-    return (changed_grades, removed_grades)
+        raise SessionError("Session was destroyed.")
 
 def send_email(
     email: str,
@@ -60,7 +60,7 @@ def send_email(
     changes_text = {}
     changes_html = {}
     for sky_class in added:
-        class_name = sky_class.name
+        class_name = sky_class.skyward_title()
         grade_changes = sky_class.grades
         change_str_text = ""
         change_str_html = ""
@@ -87,7 +87,7 @@ def send_email(
             changes_text[class_name] = change_str_text
             changes_html[class_name] = change_str_html
     for sky_class in removed:
-        class_name = sky_class.name
+        class_name = sky_class.skyward_title()
         grade_changes = sky_class.grades
         change_str_text = ""
         change_str_html = ""

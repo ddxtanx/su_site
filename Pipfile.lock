@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "e2c9dcd0c7637ae3ab3c92abbdefc894084f416946d3cba42bba6d26a9f61628"
+            "sha256": "46ecfe097fad18856604226a5d4283b40a15043e1f1448bea2f54d3696701503"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -291,6 +291,14 @@
             "index": "pypi",
             "version": "==0.4.15"
         },
+        "gunicorn": {
+            "hashes": [
+                "sha256:aa8e0b40b4157b36a5df5e599f45c9c76d6af43845ba3b3b0efe2c70473c2471",
+                "sha256:fa2662097c66f920f53f70621c6c58ca4a3c4d3434205e608e121b5b3b71f4f3"
+            ],
+            "index": "pypi",
+            "version": "==19.9.0"
+        },
         "idna": {
             "hashes": [
                 "sha256:156a6814fb5ac1fc6850fb002e0852d56c0c8d2531923a51032d1b70760e186e",
@@ -553,11 +561,11 @@
         },
         "skyward-api": {
             "hashes": [
-                "sha256:4fea4729f6234c5146890ac9ea99a30448234957ee6378b25dff345d211702d0",
-                "sha256:bbd49559937a44e5585ccdf07b2c75b7677cdc0932603369acdf3446d7fd2a89"
+                "sha256:5e3cdd18ed225d53b601d032d872471227db5cf9e92396a579a943e276d70760",
+                "sha256:78d5c98ab0fe7383b7581c046df66aaf475105c0bae3cd05b864bdae7a6c85f0"
             ],
             "index": "pypi",
-            "version": "==1.5.7"
+            "version": "==1.6.1"
         },
         "tqdm": {
             "hashes": [

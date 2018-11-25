@@ -16,8 +16,10 @@ from flask_sslify import SSLify
 
 
 app = Flask(__name__)
-app.debug = os.environ["debugging"] if "debugging" in os.environ else False
-ssl = SSLify(app)
+debugging = True if "debugging" in os.environ and os.environ["debugging"] == "True" else False
+app.debug = debugging
+if not debugging:
+    ssl = SSLify(app)
 app.config["SECRET_KEY"] = os.environ["key"]
 socket = SocketIO(app)
 

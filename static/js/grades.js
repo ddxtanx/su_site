@@ -78,10 +78,20 @@ $(document).ready(function(){
   task_soc.on("error", function(){
     window.location.href="/profile?error=destroyed";
   })
+  task_soc.on("not ready", function(){
+    var notif_text = $("#notify").text()
+    var num_of_dots = (notif_text.match(/\./g) || []).length
+    console.log(num_of_dots)
+    var new_num_of_dots = (num_of_dots + 1) % 4
+    console.log(new_num_of_dots)
+    var dots_str = ".".repeat(new_num_of_dots)
+    $("#notify").text("Getting grades" + dots_str)
+  })
   $("#force").click(function(){
     $("#cancel").show();
     $("#force").hide();
     $("#grades").empty();
+    $("#notify").text("Getting grades...")
     $("#notify").show();
     normal_soc.emit("get grades", {
       "data": {

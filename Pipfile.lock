@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "85cbdfa7e74750c299ddda0ef1d32fc48ea439931968382c690c1ba36b4dfc36"
+            "sha256": "4c0977479fef537e3f0c1ed176126a0707a950bddd625f031aab05f2ab9e4c47"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -544,12 +544,8 @@
             "version": "==2.20.0"
         },
         "requests-html": {
-            "hashes": [
-                "sha256:34257d5249b20b8ed14573eba910f48032a61205e70d11ce8a3ef6abf8edc50b",
-                "sha256:9686f21c5753ba6c025c6ba223a8329c7b149a935a73055097faf8999eee85b1"
-            ],
-            "index": "pypi",
-            "version": "==0.9.0"
+            "git": "https://github.com/kennethreitz/requests-html",
+            "ref": "47b2ad86cab49167fb15cce787efca74c4de9fdd"
         },
         "six": {
             "hashes": [
@@ -561,11 +557,11 @@
         },
         "skyward-api": {
             "hashes": [
-                "sha256:17c712e8ada817fac9366eb4052b8bd5140d0a6c93f49e2124432b78e473fdc6",
-                "sha256:3765d8d27b3512db89a3a23a2e2838495ec0d5477c4b49e793cede54d39d6c4e"
+                "sha256:426904f2c951dce4127e77a36ecf19d3de969073b3b8e7dd3f8c0bd73aa65c02",
+                "sha256:b5edb10e38dfaf866946fb302882f6c10d84930db9c14eee7d16d9142c0b5c07"
             ],
             "index": "pypi",
-            "version": "==1.6.2"
+            "version": "==1.7.0"
         },
         "tqdm": {
             "hashes": [

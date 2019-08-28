@@ -78,7 +78,7 @@ class User():
               user["email"],
               user["sky_data"],
               user["service"],
-              loads(user["grades"])
+              loads(user["grades"]) or None
            )
         except ValueError:
            return None
